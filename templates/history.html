@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Document Processing History</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .entry {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .entry-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .entry-title {
+            margin: 0;
+            color: #2c3e50;
+        }
+        .entry-date {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        .entry-content {
+            margin-top: 15px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .btn-secondary {
+            background-color: #95a5a6;
+        }
+        .btn-secondary:hover {
+            background-color: #7f8c8d;
+        }
+        .image-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .image-container {
+            border: 1px solid #ddd;
+            padding: 8px;
+            border-radius: 4px;
+            background: white;
+        }
+        .image-container img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin-bottom: 8px;
+        }
+        .no-entries {
+            text-align: center;
+            color: #7f8c8d;
+            padding: 40px 20px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">← Back to Upload</a>
+        <h1>Document Processing History</h1>
+        
+        {% if entries %}
+            {% for entry in entries %}
+                <div class="entry">
+                    <div class="entry-header">
+                        <h2 class="entry-title">{{ entry.filename }}</h2>
+                        <div class="entry-date">{{ entry.timestamp }}</div>
+                    </div>
+                    
+                    <div class="entry-content">
+                        <div class="actions">
+                            <a href="/download/{{ entry.filename }}/text" class="btn">Download Text</a>
+                            <a href="/download/{{ entry.filename }}/json" class="btn">Download JSON</a>
+                        </div>
+                        
+                        {% if entry.extracted_images %}
+                            <h3>Extracted Images:</h3>
+                            <div class="image-gallery">
+                                {% for img_path in entry.extracted_images %}
+                                    <div class="image-container">
+                                        <img src="{{ url_for('static', filename=img_path) }}" alt="Extracted image">
+                                        <a href="{{ url_for('static', filename=img_path) }}" class="btn btn-secondary" download>Download</a>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-entries">
+                <p>No upload history found.</p>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>
