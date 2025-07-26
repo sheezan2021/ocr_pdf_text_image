@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Document Processor with OCR</title>
     <style>
@@ -10,17 +11,20 @@
             padding: 20px;
             line-height: 1.6;
         }
+
         .container {
             background-color: #f9f9f9;
             border-radius: 8px;
             padding: 30px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
+
         h1 {
             color: #2c3e50;
             text-align: center;
             margin-bottom: 30px;
         }
+
         .upload-area {
             border: 2px dashed #3498db;
             border-radius: 8px;
@@ -30,14 +34,17 @@
             background-color: #f0f8ff;
             transition: all 0.3s;
         }
+
         .upload-area:hover {
             background-color: #e6f2ff;
             border-color: #2980b9;
         }
+
         .upload-area.dragover {
             background-color: #e1f0ff;
             border-color: #1a73e8;
         }
+
         .btn {
             display: inline-block;
             padding: 12px 24px;
@@ -50,18 +57,22 @@
             font-size: 16px;
             transition: background-color 0.3s;
         }
+
         .btn:hover {
             background-color: #2980b9;
         }
+
         .btn:disabled {
             background-color: #95a5a6;
             cursor: not-allowed;
         }
+
         #file-info {
             margin-top: 15px;
             font-size: 14px;
             color: #7f8c8d;
         }
+
         .instructions {
             background-color: #e8f4f8;
             border-left: 4px solid #3498db;
@@ -69,41 +80,48 @@
             margin: 25px 0;
             border-radius: 0 4px 4px 0;
         }
+
         .features {
             margin: 30px 0;
         }
+
         .feature {
             display: flex;
             align-items: flex-start;
             margin-bottom: 15px;
         }
+
         .feature-icon {
             margin-right: 15px;
             color: #3498db;
             font-weight: bold;
         }
+
         .nav-links {
             text-align: right;
             margin-bottom: 20px;
         }
+
         .nav-links a {
             color: #3498db;
             text-decoration: none;
             margin-left: 15px;
         }
+
         .nav-links a:hover {
             text-decoration: underline;
         }
     </style>
 </head>
+
 <body>
     <div class="nav-links">
         <a href="/history">View History</a>
     </div>
-    
+
     <div class="container">
         <h1>Document Processor with OCR</h1>
-        
+
         <div class="instructions">
             <p><strong>Upload a PDF or image file</strong> to extract text and images. The system supports:</p>
             <ul>
@@ -112,7 +130,7 @@
             </ul>
             <p>Maximum file size: 16MB</p>
         </div>
-        
+
         <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
             <div class="upload-area" id="drop-area">
                 <input type="file" name="file" id="file-input" accept=".pdf,.jpg,.jpeg,.png" style="display: none;">
@@ -124,7 +142,7 @@
                 <button type="submit" class="btn" id="submit-btn" disabled>Process File</button>
             </div>
         </form>
-        
+
         <div class="features">
             <h3>Features:</h3>
             <div class="feature">
@@ -156,47 +174,47 @@
         const fileInput = document.getElementById('file-input');
         const fileInfo = document.getElementById('file-info');
         const submitBtn = document.getElementById('submit-btn');
-        
+
         // Handle drag and drop
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
             dropArea.addEventListener(eventName, preventDefaults, false);
         });
-        
+
         function preventDefaults(e) {
             e.preventDefault();
             e.stopPropagation();
         }
-        
+
         ['dragenter', 'dragover'].forEach(eventName => {
             dropArea.addEventListener(eventName, highlight, false);
         });
-        
+
         ['dragleave', 'drop'].forEach(eventName => {
             dropArea.addEventListener(eventName, unhighlight, false);
         });
-        
+
         function highlight() {
             dropArea.classList.add('dragover');
         }
-        
+
         function unhighlight() {
             dropArea.classList.remove('dragover');
         }
-        
+
         // Handle dropped files
         dropArea.addEventListener('drop', handleDrop, false);
-        
+
         function handleDrop(e) {
             const dt = e.dataTransfer;
             const files = dt.files;
             handleFiles(files);
         }
-        
+
         // Handle file selection
-        fileInput.addEventListener('change', function() {
+        fileInput.addEventListener('change', function () {
             handleFiles(this.files);
         });
-        
+
         function handleFiles(files) {
             if (files.length > 0) {
                 const file = files[0];
@@ -209,12 +227,12 @@
                 }
             }
         }
-        
+
         function isValidFileType(file) {
             const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
             return validTypes.includes(file.type);
         }
-        
+
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';
             const k = 1024;
@@ -224,4 +242,5 @@
         }
     </script>
 </body>
+
 </html>

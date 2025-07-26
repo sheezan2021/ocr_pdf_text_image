@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Document View - {{ entry.filename }}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      color: #2c3e50;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #eee;
+    }
+
+    .action-buttons {
+      margin: 15px 0;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 15px;
+      background: #3498db;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+      font-size: 14px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn i {
+      margin-right: 5px;
+    }
+
+    .btn:hover {
+      background: #2980b9;
+    }
+
+    .document-view {
+      background: white;
+      padding: 20px;
+      border: 1px solid #ddd;
+      margin-top: 20px;
+      position: relative;
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .pdf-page {
+      position: relative;
+      margin-bottom: 30px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      overflow: visible;
+      transition: width 0.2s, height 0.2s;
+    }
+
+    .page {
+      margin-bottom: 30px;
+      position: relative;
+      min-height: 100px;
+      page-break-after: always;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+    }
+
+    .block {
+      position: absolute;
+      white-space: pre-wrap;
+      font-family: inherit;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
+    .text-block {
+      color: #111 !important;
+      font-family: 'Courier New', Courier, monospace !important;
+      font-size: 10px !important;
+      line-height: 1 !important;
+      background: #fff;
+      border: 1px solid #eee;
+      overflow: visible;
+      min-height: 0;
+      padding: 0;
+    }
+
+    .formula-block {
+      border: 1px dashed #4caf50;
+      padding: 5px;
+      background-color: rgba(76, 175, 80, 0.05);
+      font-family: monospace;
+    }
+
+    .image-container {
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+      padding: 5px;
+    }
+
+    .loading {
+      padding: 20px;
+      text-align: center;
+      font-style: italic;
+      color: #666;
+    }
+
+    .content-preview {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+
+    .json-content {
+      color: #333;
+    }
+
+    .json-content h4 {
+      margin: 15px 0 10px;
+      color: #2c3e50;
+    }
+
+    .images-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .image-item img {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 3px;
+      background: white;
+    }
+
+    .error {
+      background-color: #ffebee;
+      border-left: 4px solid #f44336;
+      padding: 15px;
+      margin: 15px 0;
+    }
+
+    .debug-section {
+      margin-top: 40px;
+      padding: 15px;
+      background-color: #f5f5f5;
+      border-radius: 4px;
+    }
+
+    .debug-section pre {
+      background-color: #fff;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+      max-height: 300px;
+    }
+
+    .image-block {
+      position: absolute;
+      border: 1px solid #eee;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .page-number {
+      position: absolute;
+      bottom: -25px;
+      right: 0;
+      color: #666;
+      font-size: 14px;
+    }
+
+    @media print {
+      body {
+        background: white;
+        padding: 0;
+      }
+
+      .container {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+
+      .action-buttons {
+        display: none;
+      }
+
+      .document-view {
+        border: none;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Document Viewer</h1>
+
+    <div class="action-buttons">
+      <button class="btn" onclick="window.print()">
+        <i class="fas fa-print"></i> Print
+      </button>
+      <a href="{{ url_for('history') }}" class="btn">
+        <i class="fas fa-arrow-left"></i> Back to History
+      </a>
+    </div>
+
+    <div id="json-data" style="display: none;">{{ json_data | tojson | safe }}</div>
+
+    {% if entry.extracted_text %}
+    <h3>Extracted Text</h3>
+    <pre>{{ entry.extracted_text | e }}</pre>
+    {% endif %}
+
+    <div class="document-view" id="documentView">
+      <div class="loading">Loading document, please wait...</div>
+    </div>
+    <div style="margin-top: 10px;">
+      <label for="scaleRange">Zoom: </label>
+      <input type="range" id="scaleRange" min="0.5" max="2.5" step="0.05" value="1.5">
+      <span id="scaleValue">1.5x</span>
+    </div>
+
+    {% if debug %}
+    <div class="debug-section">
+      <h3>Debug Information</h3>
+      <div id="debugInfo">
+        <p>Loading debug information...</p>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const documentView = document.getElementById('documentView');
+      const scaleRange = document.getElementById('scaleRange');
+      const scaleValue = document.getElementById('scaleValue');
+      function getJsonData() {
+        try {
+          const jsonString = document.getElementById('json-data').textContent.trim();
+          return JSON.parse(jsonString || '[]');
+        } catch (e) {
+          console.error('Error parsing JSON data:', e);
+          return [];
+        }
+      }
+      function renderBlock(block, scale = 1) {
+        let el;
+        if (block.type === 'text') {
+          el = document.createElement('div');
+          el.textContent = block.content || '[empty]';
+          el.className = 'block text-block';
+        } else if (block.type === 'formula') {
+          el = document.createElement('div');
+          el.className = 'block formula-block';
+          el.innerHTML = `\\[${block.latex}\\]`;
+        } else if (block.type === 'image') {
+          el = document.createElement('img');
+          el.src = '/static/' + block.path;
+          el.alt = 'Extracted image';
+          el.className = 'block image-block';
+        } else {
+          el = document.createElement('div');
+          el.textContent = '[Unknown block type]';
+          el.className = 'block';
+        }
+        // Positioning
+        if (block.x !== undefined && block.y !== undefined && block.width !== undefined && block.height !== undefined) {
+          el.style.position = 'absolute';
+          el.style.left = (block.x * scale) + 'px';
+          el.style.top = (block.y * scale) + 'px';
+          el.style.width = (block.width * scale) + 'px';
+          el.style.height = (block.height * scale) + 'px';
+        }
+        return el;
+      }
+      function renderDocument() {
+        const pages = getJsonData();
+        const scale = parseFloat(scaleRange.value);
+        scaleValue.textContent = scale.toFixed(2) + 'x';
+        documentView.innerHTML = '';
+        if (!pages || !Array.isArray(pages) || pages.length === 0) {
+          documentView.innerHTML = `<div class="error"><h3>No content available</h3><p>No data to render.</p></div>`;
+          return;
+        }
+        for (const page of pages) {
+          const pageDiv = document.createElement('div');
+          pageDiv.className = 'pdf-page';
+          pageDiv.style.width = (page.width * scale) + 'px';
+          pageDiv.style.height = (page.height * scale) + 'px';
+          pageDiv.style.position = 'relative';
+          for (const block of page.blocks) {
+            const blockEl = renderBlock(block, scale);
+            pageDiv.appendChild(blockEl);
+          }
+          documentView.appendChild(pageDiv);
+        }
+        if (window.MathJax) {
+          MathJax.typesetPromise();
+        }
+      }
+      scaleRange.addEventListener('input', renderDocument);
+      try {
+        renderDocument();
+      } catch (error) {
+        console.error('Rendering error:', error);
+        documentView.innerHTML = `
+          <div class="error">
+            <h3>Error rendering document</h3>
+            <p>${error.message}</p>
+            <pre>${error.stack}</pre>
+          </div>`;
+      }
+    });
+  </script>
+</body>
+
+</html>

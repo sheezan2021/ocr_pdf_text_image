@@ -128,89 +128,113 @@ def extract_formulas_from_image(image_path):
         print(f"Error extracting formula: {e}")
         return None
 def process_file(file_path):
+    import re
     text = ''
     extracted_images = []
-    json_data = {}
-    formulas = []
-    
+    json_lines = []
+    image_counter = 0
     try:
         if file_path.lower().endswith('.pdf'):
-            # Extract text and images from PDF
-            reader = PdfReader(file_path)
-            text_parts = []
-            
-            for page_num, page in enumerate(reader.pages, 1):
-                # Extract regular text
-                page_text = page.extract_text() or ''
-                text_parts.append(f"--- Page {page_num} ---\n{page_text}\n")
-                
-            text = '\n'.join(text_parts)
-            
-            # Extract embedded images and process them for formulas
-            extracted_images = extract_images_from_pdf(file_path, EXTRACTED_IMAGES_FOLDER)
-            
-            # Process each extracted image for formulas
-            for img_path in extracted_images:
-                full_img_path = os.path.join('static', img_path)
-                formula = extract_formulas_from_image(full_img_path)
-                if formula:
-                    formulas.append({
-                        'latex': formula,
-                        'source_image': img_path,
-                        'type': 'formula'
-                    })
-            
-            # Prepare JSON data
-            json_data = {
-                'filename': os.path.basename(file_path),
-                'page_count': len(reader.pages),
-                'text': text,
-                'formulas': formulas,
-                'metadata': reader.metadata or {},
-                'extracted_images': extracted_images
-            }
-            
-        else:  # For image files
+            doc = fitz.open(file_path)
+            pages_json = []
+            for page_num, page in enumerate(doc, 1):
+                page_dict = page.get_text("dict", sort=True)
+                page_width = page.rect.width
+                page_height = page.rect.height
+                page_blocks = []
+                for block in page_dict["blocks"]:
+                    if block["type"] == 0:  # text block
+                        for line in block["lines"]:
+                            spans = []
+                            for span in line["spans"]:
+                                span_text = span.get("text", "")
+                                bbox = span.get("bbox", None)
+                                if span_text.strip() and bbox:
+                                    spans.append({
+                                        "text": span_text,
+                                        "bbox": bbox
+                                    })
+                            if not spans:
+                                continue
+                            line_text = "".join(s["text"] for s in spans)
+                            min_x = min(s["bbox"][0] for s in spans)
+                            min_y = min(s["bbox"][1] for s in spans)
+                            max_x = max(s["bbox"][2] for s in spans)
+                            max_y = max(s["bbox"][3] for s in spans)
+                            page_blocks.append({
+                                "type": "text",
+                                "content": line_text,
+                                "x": min_x,
+                                "y": min_y,
+                                "width": max_x - min_x,
+                                "height": max_y - min_y
+                            })
+                    elif block["type"] == 1:  # image block
+                        image_bytes = block.get("image")
+                        bbox = block.get("bbox", None)
+                        if image_bytes:
+                            image_counter += 1
+                            img_filename = f"{os.path.splitext(os.path.basename(file_path))[0]}_img_{image_counter}.png"
+                            img_path = os.path.join(EXTRACTED_IMAGES_FOLDER, img_filename)
+                            with open(img_path, "wb") as img_file:
+                                img_file.write(image_bytes)
+                            rel_path = f"extracted_images/{img_filename}"
+                            extracted_images.append(rel_path)
+                            page_blocks.append({
+                                "type": "image",
+                                "path": rel_path,
+                                "x": bbox[0] if bbox else None,
+                                "y": bbox[1] if bbox else None,
+                                "width": (bbox[2] - bbox[0]) if bbox else None,
+                                "height": (bbox[3] - bbox[1]) if bbox else None
+                            })
+                pages_json.append({
+                    "page_num": page_num,
+                    "width": page_width,
+                    "height": page_height,
+                    "blocks": page_blocks
+                })
+            doc.close()
+            # Compose text output for legacy display and .txt file
+            def line_to_text(line):
+                if line.get("type") == "text":
+                    return line.get("content", "")
+                elif line.get("type") == "formula":
+                    return line.get("latex", "")
+                elif line.get("type") == "image":
+                    return f"[IMAGE: {line.get('path', '')}]"
+                elif line.get("type") == "mixed":
+                    return "".join(line_to_text(p) for p in line.get("parts", []))
+                else:
+                    return ""
+            text = "\n".join(line_to_text(line) for page in pages_json for line in page["blocks"])
+            json_data = pages_json
+        else:
             image = Image.open(file_path)
             if image.mode in ('RGBA', 'P'):
                 image = image.convert('RGB')
-                
-            # Extract regular text
             text = pytesseract.image_to_string(image)
-            
-            # Try to extract formulas
             formula = extract_formulas_from_image(file_path)
+            formulas = []
             if formula:
                 formulas.append({
                     'latex': formula,
                     'type': 'formula',
                     'source_image': None
                 })
-            
-            # Save the processed image
             img_filename = f"{os.path.splitext(os.path.basename(file_path))[0]}.jpeg"
             img_save_path = os.path.join(EXTRACTED_IMAGES_FOLDER, img_filename)
             os.makedirs(EXTRACTED_IMAGES_FOLDER, exist_ok=True)
             image.save(img_save_path, 'JPEG')
-            
             rel_path = f"extracted_images/{img_filename}"
             extracted_images = [rel_path]
-            
-            # Prepare JSON data for image
-            json_data = {
-                'filename': os.path.basename(file_path),
-                'text': text,
-                'formulas': formulas,
-                'image_size': f"{image.width}x{image.height}",
-                'mode': image.mode,
-                'extracted_images': extracted_images
-            }
-            
+            json_data = [{"type": "image", "path": rel_path}]
     except Exception as e:
         print(f"Error processing file {file_path}: {e}")
         import traceback
         traceback.print_exc()
-    
+        json_data = []
+        text = ''
     return text, json.dumps(json_data, indent=2, ensure_ascii=False), extracted_images
 
 @app.route('/')
@@ -255,8 +279,9 @@ def upload_file():
         return render_template('result.html', 
                              filename=filename,
                              text=text_output,
-                             json_data=json_output,
+                             json_data=json.loads(json_output) if json_output else {},
                              extracted_images=extracted_images,
+                             entry_id=db_entry.id,
                              now=datetime.datetime.utcnow())
 
     return 'Invalid file type'
@@ -270,6 +295,32 @@ def download_file(filename, filetype):
 def history():
     entries = OCRData.query.order_by(OCRData.uploaded_at.desc()).all()
     return render_template('history.html', entries=entries)
+
+@app.route('/view/<int:entry_id>')
+def view_entry(entry_id):
+    entry = OCRData.query.get_or_404(entry_id)
+    print(f"\n=== DEBUG: Processing entry {entry_id} ===")
+    print(f"Filename: {entry.filename}")
+    
+    # Parse JSON data
+    json_data = []
+    if entry.extracted_json:
+        try:
+            json_data = json.loads(entry.extracted_json)
+            print(f"Loaded JSON data, type: {type(json_data)}")
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON: {e}")
+            json_data = []
+    else:
+        print("No JSON data found in entry")
+        json_data = []
+    
+    # No longer process images or text_blocks as keys
+    # Just pass the list to the template
+    return render_template('view.html', 
+        entry=entry,
+        json_data=json_data,
+        debugInfo=True)
 
 # Route to serve extracted images
 @app.route('/static/<path:path>')
