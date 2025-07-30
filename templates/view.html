@@ -60,6 +60,25 @@
       background: #2980b9;
     }
 
+    .delete-btn {
+      background: #e74c3c !important;
+    }
+
+    .delete-btn:hover {
+      background: #c0392b !important;
+    }
+
+    .action-buttons form {
+      display: inline-block;
+      margin: 0;
+      padding: 0;
+    }
+
+    .action-buttons form .btn {
+      height: auto;
+      line-height: 1.6;
+    }
+
     .document-view {
       background: white;
       padding: 20px;
@@ -234,6 +253,12 @@
       <a href="{{ url_for('history') }}" class="btn">
         <i class="fas fa-arrow-left"></i> Back to History
       </a>
+      <form method="POST" action="{{ url_for('delete_entry', entry_id=entry.id) }}" style="display: inline;"
+        onsubmit="return confirm('Are you sure you want to delete this document and all its extracted data? This action cannot be undone.');">
+        <button type="submit" class="btn delete-btn">
+          <i class="fas fa-trash"></i> Delete All Data
+        </button>
+      </form>
     </div>
 
     <div id="json-data" style="display: none;">{{ json_data | tojson | safe }}</div>

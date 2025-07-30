@@ -322,6 +322,50 @@ def view_entry(entry_id):
         json_data=json_data,
         debugInfo=True)
 
+@app.route('/delete/<int:entry_id>', methods=['POST'])
+def delete_entry(entry_id):
+    entry = OCRData.query.get_or_404(entry_id)
+    
+    try:
+        # Delete uploaded file
+        uploaded_file_path = os.path.join(app.config['UPLOAD_FOLDER'], entry.filename)
+        if os.path.exists(uploaded_file_path):
+            os.remove(uploaded_file_path)
+        
+        # Delete extracted text file
+        txt_path = os.path.join(OUTPUT_FOLDER, entry.filename + '.txt')
+        if os.path.exists(txt_path):
+            os.remove(txt_path)
+        
+        # Delete extracted JSON file
+        json_path = os.path.join(OUTPUT_FOLDER, entry.filename + '.json')
+        if os.path.exists(json_path):
+            os.remove(json_path)
+        
+        # Delete extracted images
+        if entry.extracted_images:
+            try:
+                image_paths = json.loads(entry.extracted_images)
+                for image_path in image_paths:
+                    # Convert web path to file system path
+                    if image_path.startswith('extracted_images/'):
+                        full_image_path = os.path.join('static', image_path)
+                        if os.path.exists(full_image_path):
+                            os.remove(full_image_path)
+            except json.JSONDecodeError:
+                pass  # Skip if image paths can't be parsed
+        
+        # Delete database entry
+        db.session.delete(entry)
+        db.session.commit()
+        
+        return redirect(url_for('upload_form'))
+        
+    except Exception as e:
+        print(f"Error deleting entry {entry_id}: {e}")
+        db.session.rollback()
+        return f"Error deleting entry: {str(e)}", 500
+
 # Route to serve extracted images
 @app.route('/static/<path:path>')
 def serve_static(path):
