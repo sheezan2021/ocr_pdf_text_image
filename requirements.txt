@@ -6,6 +6,6 @@ PyPDF2==3.0.1
 pdf2image==1.16.3
 flask-sqlalchemy==3.0.3
 flask-migrate==4.0.5
-pix2tex
+rapid-latex-ocr
 torch
 torchvision

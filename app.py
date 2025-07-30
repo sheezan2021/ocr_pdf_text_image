@@ -9,11 +9,11 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 import datetime
 import fitz  # PyMuPDF
-from pix2tex.cli import LatexOCR
+from rapid_latex_ocr import LaTeXOCR
 
 # Initialize LaTeX OCR model
 try:
-    latex_ocr_model = LatexOCR()
+    latex_ocr_model = LaTeXOCR()
 except Exception as e:
     print(f"Warning: Could not initialize LaTeX OCR model: {e}")
     latex_ocr_model = None
@@ -110,8 +110,42 @@ def extract_images_from_pdf(pdf_path, output_folder):
         traceback.print_exc()
     
     return images
+def clean_latex_formula(formula):
+    """Clean and format LaTeX formula for better display."""
+    if not formula:
+        return formula
+    
+    import re
+    
+    # Remove all newlines and replace with spaces
+    formula = formula.replace('\n', ' ')
+    
+    # Remove multiple consecutive spaces
+    formula = re.sub(r'\s+', ' ', formula)
+    
+    # Remove leading/trailing spaces
+    formula = formula.strip()
+    
+    # Handle common LaTeX alignment issues
+    formula = formula.replace(' ,', ',')
+    formula = formula.replace(' .', '.')
+    formula = formula.replace(' = ', '=')
+    formula = formula.replace(' =', '=')
+    formula = formula.replace('= ', '=')
+    
+    # Fix common LaTeX spacing issues
+    formula = re.sub(r'\\left\s+', r'\\left', formula)
+    formula = re.sub(r'\\right\s+', r'\\right', formula)
+    formula = re.sub(r'\s+\\left', r'\\left', formula)
+    formula = re.sub(r'\s+\\right', r'\\right', formula)
+    
+    # Fix spacing around operators
+    formula = re.sub(r'\s*([+\-*/=])\s*', r'\1', formula)
+    
+    return formula
+
 def extract_formulas_from_image(image_path):
-    """Extract LaTeX formulas from an image using pix2tex."""
+    """Extract LaTeX formulas from an image using rapid_latex_ocr."""
     if not latex_ocr_model:
         return None
         
@@ -121,15 +155,18 @@ def extract_formulas_from_image(image_path):
         # Convert to RGB if necessary
         if img.mode != 'RGB':
             img = img.convert('RGB')
-        # Extract formula
+        # Extract formula using rapid_latex_ocr
         formula = latex_ocr_model(img)
+        # Clean and format the formula
+        if formula:
+            formula = clean_latex_formula(formula)
         return formula
     except Exception as e:
         print(f"Error extracting formula: {e}")
         return None
 def process_file(file_path):
     import re
-    text = ''
+    text_output = ''
     extracted_images = []
     json_lines = []
     image_counter = 0
@@ -207,7 +244,7 @@ def process_file(file_path):
                     return "".join(line_to_text(p) for p in line.get("parts", []))
                 else:
                     return ""
-            text = "\n".join(line_to_text(line) for page in pages_json for line in page["blocks"])
+            text_output = "\n".join(line_to_text(line) for page in pages_json for line in page["blocks"])
             json_data = pages_json
         else:
             image = Image.open(file_path)
@@ -215,27 +252,45 @@ def process_file(file_path):
                 image = image.convert('RGB')
             text = pytesseract.image_to_string(image)
             formula = extract_formulas_from_image(file_path)
-            formulas = []
+            
+            # Compose text output including formula
+            text_output = text.strip()
             if formula:
-                formulas.append({
-                    'latex': formula,
-                    'type': 'formula',
-                    'source_image': None
-                })
+                if text_output:
+                    text_output += f"\n\nExtracted Formula:\n{formula}"
+                else:
+                    text_output = f"Extracted Formula:\n{formula}"
+            
+            # Save the original image
             img_filename = f"{os.path.splitext(os.path.basename(file_path))[0]}.jpeg"
             img_save_path = os.path.join(EXTRACTED_IMAGES_FOLDER, img_filename)
             os.makedirs(EXTRACTED_IMAGES_FOLDER, exist_ok=True)
             image.save(img_save_path, 'JPEG')
             rel_path = f"extracted_images/{img_filename}"
             extracted_images = [rel_path]
-            json_data = [{"type": "image", "path": rel_path}]
+            
+            # Create JSON data with both text and formula
+            json_data = []
+            if text.strip():
+                json_data.append({
+                    "type": "text",
+                    "content": text.strip()
+                })
+            if formula:
+                json_data.append({
+                    "type": "formula",
+                    "latex": clean_latex_formula(formula),
+                    "source_image": rel_path
+                })
+            if not json_data:  # If no text or formula found, just add the image
+                json_data = [{"type": "image", "path": rel_path}]
     except Exception as e:
         print(f"Error processing file {file_path}: {e}")
         import traceback
         traceback.print_exc()
         json_data = []
-        text = ''
-    return text, json.dumps(json_data, indent=2, ensure_ascii=False), extracted_images
+        text_output = ''
+    return text_output, json.dumps(json_data, separators=(',', ':'), ensure_ascii=False), extracted_images
 
 @app.route('/')
 def upload_form():

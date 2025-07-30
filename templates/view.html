@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Document View - {{ entry.filename }}</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -136,6 +137,9 @@
       padding: 5px;
       background-color: rgba(76, 175, 80, 0.05);
       font-family: monospace;
+      white-space: nowrap;
+      overflow-x: auto;
+      max-width: 100%;
     }
 
     .image-container {
@@ -310,7 +314,10 @@
         } else if (block.type === 'formula') {
           el = document.createElement('div');
           el.className = 'block formula-block';
-          el.innerHTML = `\\[${block.latex}\\]`;
+          // Clean up the LaTeX formula for better display
+          let latex = block.latex || '';
+          latex = latex.replace(/\s+/g, ' ').trim();
+          el.innerHTML = `\\[${latex}\\]`;
         } else if (block.type === 'image') {
           el = document.createElement('img');
           el.src = '/static/' + block.path;

@@ -231,6 +231,12 @@
         .formula-latex {
             padding: 10px;
             overflow-x: auto;
+            white-space: nowrap;
+            font-family: 'Courier New', monospace;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            margin: 5px 0;
         }
 
         .formula-source {
@@ -244,11 +250,20 @@
 <body>
     <div class="container">
         <h1>Document Processing Results</h1>
-        {% if json_data and json_data.formulas|length > 0 %}
+        {% if json_data %}
+        {% set formulas = [] %}
+        {% if json_data is iterable %}
+        {% for item in json_data %}
+        {% if item.type == 'formula' %}
+        {% set _ = formulas.append(item) %}
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+        {% if formulas|length > 0 %}
         <div class="section">
             <h2>Extracted Formulas</h2>
             <div class="formula-container">
-                {% for formula in json_data.formulas %}
+                {% for formula in formulas %}
                 <div class="formula-item">
                     <div class="formula-latex">\[ {{ formula.latex }} \]</div>
                     {% if formula.source_image %}
@@ -261,6 +276,7 @@
                 {% endfor %}
             </div>
         </div>
+        {% endif %}
         {% endif %}
 
         <div class="file-info">
